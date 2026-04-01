@@ -9,7 +9,7 @@ An 8-bit quantized LSTM neural network for real-time wake word detection on edge
 - **Top module**: `tt_um_lstm_wakeword`
 - **Language**: Verilog
 - **Target shuttle**: SKY130A (Tiny Tapeout)
-- **Clock**: 13.56 MHz (RFID frequency)
+- **Clock**: 50 MHz target (timing-constrained)
 
 ## Creator
 
@@ -116,8 +116,8 @@ for feature_idx in range(13):
     feature_val = int(audio_features[feature_idx])  # 7-bit signed
     chip.ui_in = (1 << 7) | (feature_val & 0x7F)
     
-    # Wait for LSTM latency (~6 cycles @ 13.56 MHz)
-    time.sleep(443e-9)
+    # Wait for LSTM latency (~6 cycles @ 50 MHz)
+    time.sleep(120e-9)
     
     # Read output
     confidence = (chip.uo_out >> 1) & 0x3F
@@ -236,13 +236,12 @@ File: `src/config.json`
 
 ```json
 {
-  "CLOCK_PERIOD": "74ns",
-  "CLOCK_FREQ": "13.56MHz",
-  "VERILOG_STANDARD": "2012"
+  "CLOCK_PERIOD": 20,
+  "CLOCK_PORT": "clk"
 }
 ```
 
-The 13.56 MHz clock frequency is the standard RFID reader frequency, making it a convenient external reference for this application.
+The project now targets a 50 MHz external clock for higher throughput, subject to timing closure in the Tiny Tapeout flow.
 
 ## Design Decisions
 

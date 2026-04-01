@@ -8,7 +8,7 @@ This project implements a single-layer LSTM neural network inference accelerator
 
 ```
 User Input:
-  Audio microphone → RP2040 preprocessor (MFCC extraction) → 13.56 MHz digital features
+  Audio microphone → RP2040 preprocessor (MFCC extraction) → 50 MHz digital features
 
 TTSKY26A-NN:
   7-bit signed MFCC feature + valid strobe
@@ -197,7 +197,7 @@ for idx, feature in enumerate(audio_features):
     # Send feature + valid
     write_ui((1 << 7) | (feature & 0x7F))
     
-    # Wait for LSTM latency (~6 cycles @ 13.56 MHz ≈ 443 ns)
+    # Wait for LSTM latency (~6 cycles @ 50 MHz ≈ 120 ns)
     time.sleep(500e-9)
     
     # Read output
@@ -218,8 +218,8 @@ print("Done!")
 
 ### System Constraints
 
-- **Clock Period**: 74 ns (13.56 MHz) — standard RFID frequency
-- **LSTM Latency**: 6-8 cycles per feature (443 ns to 591 ns)
+- **Clock Period**: 20 ns (50 MHz) target
+- **LSTM Latency**: 6-8 cycles per feature (120 ns to 160 ns)
 - **Area**: ~1,230 LUTs (61% of SKY130A digital tile)
 - **Power**: <5 mW during inference, <1 mW idle
 - **Memory**: 4 KB lookup tables (sigmoid + tanh)

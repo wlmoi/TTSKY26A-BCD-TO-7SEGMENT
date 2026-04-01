@@ -24,10 +24,10 @@ module tb_nn_wakeword_verify;
         .uio_oe(uio_oe)
     );
 
-    // ===== Clock Generation (13.56 MHz) =====
+    // ===== Clock Generation (50 MHz) =====
     initial begin
         clk = 1'b0;
-        forever #37 clk = ~clk;  // Period = 74 ns ≈ 13.56 MHz
+        forever #10 clk = ~clk;  // Period = 20 ns = 50 MHz
     end
 
     // ===== Test Harness =====
