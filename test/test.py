@@ -85,7 +85,6 @@ async def send_feature_and_capture(dut, feature):
     # Wait for processing window using busy handshake.
     await wait_for_busy_state(dut, 1, max_cycles=20)
     await wait_for_busy_state(dut, 0, max_cycles=MAX_WAIT_CYCLES)
-    await ReadOnly()
 
     return {
         "feature": feature,
