@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import cocotb
-from cocotb.triggers import ReadOnly, ReadWrite, RisingEdge
+from cocotb.triggers import NextTimeStep, ReadOnly, RisingEdge
 
 
 MAX_WAIT_CYCLES = 120
@@ -39,6 +39,19 @@ async def wait_cycles(dut, count):
         await RisingEdge(dut.clk)
 
 
+async def drive_signals(dut, ui_in=None, uio_in=None, ena=None, rst_n=None):
+    # Advance one delta cycle so drives never happen while still in ReadOnly.
+    await NextTimeStep()
+    if ui_in is not None:
+        dut.ui_in.value = ui_in
+    if uio_in is not None:
+        dut.uio_in.value = uio_in
+    if ena is not None:
+        dut.ena.value = ena
+    if rst_n is not None:
+        dut.rst_n.value = rst_n
+
+
 async def wait_for_busy_state(dut, expected_state, max_cycles=MAX_WAIT_CYCLES):
     for cycle in range(max_cycles):
         await RisingEdge(dut.clk)
@@ -50,20 +63,13 @@ async def wait_for_busy_state(dut, expected_state, max_cycles=MAX_WAIT_CYCLES):
 
 async def apply_resets(dut):
     # Use both global rst_n and local uio reset to guarantee deterministic startup.
-    await ReadWrite()
-    dut.ena.value = 0
-    dut.ui_in.value = pack_ui(0, 0)
-    dut.uio_in.value = 0x01  # local reset bit
-    dut.rst_n.value = 0
+    await drive_signals(dut, ena=0, ui_in=pack_ui(0, 0), uio_in=0x01, rst_n=0)
     await wait_cycles(dut, 6)
 
-    await ReadWrite()
-    dut.rst_n.value = 1
+    await drive_signals(dut, rst_n=1)
     await wait_cycles(dut, 4)
 
-    await ReadWrite()
-    dut.uio_in.value = 0x00
-    dut.ena.value = 1
+    await drive_signals(dut, uio_in=0x00, ena=1)
     await wait_cycles(dut, 4)
 
 
@@ -72,15 +78,13 @@ async def send_feature_and_capture(dut, feature):
     if busy(dut):
         await wait_for_busy_state(dut, 0)
 
-    # Drive only on writable phase around clock edges to avoid ReadOnly writes.
+    # Drive only after moving to next delta cycle to avoid ReadOnly writes.
     await RisingEdge(dut.clk)
-    await ReadWrite()
-    dut.ui_in.value = pack_ui(feature, 1)
+    await drive_signals(dut, ui_in=pack_ui(feature, 1))
     await RisingEdge(dut.clk)
 
     # Deassert data_valid after one cycle.
-    await ReadWrite()
-    dut.ui_in.value = pack_ui(feature, 0)
+    await drive_signals(dut, ui_in=pack_ui(feature, 0))
 
     # Wait for processing window using busy handshake.
     await wait_for_busy_state(dut, 1, max_cycles=20)
@@ -115,8 +119,7 @@ async def test_project(dut):
     await apply_resets(dut)
 
     # Idle checks: no data_valid means no busy pulse.
-    await ReadWrite()
-    dut.ui_in.value = pack_ui(0, 0)
+    await drive_signals(dut, ui_in=pack_ui(0, 0))
     for _ in range(12):
         await RisingEdge(dut.clk)
         await ReadOnly()
@@ -140,9 +143,7 @@ async def test_project(dut):
 
     # Debug mode bypass: uo_out[6:0] mirrors ui_in[6:0], uo_out[7] forced low.
     debug_feature = 0x35
-    await ReadWrite()
-    dut.uio_in.value = 0x02  # debug_mode=1
-    dut.ui_in.value = (1 << 7) | debug_feature
+    await drive_signals(dut, uio_in=0x02, ui_in=((1 << 7) | debug_feature))
     await RisingEdge(dut.clk)
     await ReadOnly()
     debug_out = int(dut.uo_out.value)
@@ -152,22 +153,18 @@ async def test_project(dut):
 
     # Return to normal mode.
     await RisingEdge(dut.clk)
-    await ReadWrite()
-    dut.uio_in.value = 0x00
-    dut.ui_in.value = pack_ui(0, 0)
+    await drive_signals(dut, uio_in=0x00, ui_in=pack_ui(0, 0))
     await wait_cycles(dut, 2)
 
     # Local reset should clear output state.
-    await ReadWrite()
-    dut.uio_in.value = 0x01
+    await drive_signals(dut, uio_in=0x01)
     await wait_cycles(dut, 3)
     await ReadOnly()
     assert int(dut.uo_out.value) == 0, "Output not cleared by local reset"
     assert int(dut.uio_out.value) == 0, "uio_out not cleared by local reset"
 
     await RisingEdge(dut.clk)
-    await ReadWrite()
-    dut.uio_in.value = 0x00
+    await drive_signals(dut, uio_in=0x00)
     await wait_cycles(dut, 2)
 
     dut._log.info("NN-LSTM cocotb checks passed")
