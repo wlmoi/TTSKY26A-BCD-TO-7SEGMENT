@@ -241,10 +241,8 @@ print("Done!")
 
 ### References
 
-1. Hochreiter, S., & Schmidhuber, J. (1997). "Long short-term memory." *Neural Computation*, 9(8), 1735-1780.
-2. Jacob, B., et al. (2018). "Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference." *CVPR 2018*.
-3. Tiny Tapeout: https://tinytapeout.com/
-4. SKY130 PDK: https://skywater-pdk.readthedocs.io/
+1. Tiny Tapeout: https://tinytapeout.com/
+2. GeeksforGeeks, "Deep Learning - Introduction to Long Short Term Memory": https://www.geeksforgeeks.org/deep-learning/deep-learning-introduction-to-long-short-term-memory/
 
 ---
 

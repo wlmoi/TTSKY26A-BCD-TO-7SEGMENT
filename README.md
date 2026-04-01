@@ -47,20 +47,6 @@ Audio Input (7-bit MFCC)
   Output: Trigger (1-bit) + Confidence (6-bit) + Busy (1-bit)
 ```
 
-### Core Modules
-
-| Module | Purpose | LUTs |
-|--------|---------|------|
-| `nn_input_sync.v` | Clock sync + metastability hardening | ~50 |
-| `nn_lstm_cell.v` | LSTM cell with sigmoid/tanh LUTs | ~600 |
-| `nn_lstm_layer.v` | LSTM layer wrapper | ~100 |
-| `nn_dense_layer.v` | Output classification layer | ~150 |
-| `nn_confidence_calc.v` | Confidence & trigger logic | ~100 |
-| `nn_busy_controller.v` | Pipeline busy management | ~30 |
-| `project.v` | Top-level Tiny Tapeout wrapper | ~200 |
-
-**Total**: ~1,230 LUTs (≈61% SKY130A utilization)
-
 ## I/O Specification
 
 ### Input Ports (ui_in[7:0])
@@ -261,9 +247,7 @@ The project now targets a 50 MHz external clock for higher throughput, subject t
 ## References
 
 - **Tiny Tapeout**: https://tinytapeout.com/
-- **SKY130 PDK**: https://skywater-pdk.readthedocs.io/
-- **LSTM Architecture**: Hochreiter & Schmidhuber (1997)
-- **Quantization**: Jacob et al. (2018), "Quantization and Training of Neural Networks..."
+- **LSTM Introduction (GeeksforGeeks)**: https://www.geeksforgeeks.org/deep-learning/deep-learning-introduction-to-long-short-term-memory/
 
 ## License
 
