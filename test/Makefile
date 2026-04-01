@@ -8,13 +8,12 @@ TOPLEVEL_LANG ?= verilog
 SRC_DIR = $(PWD)/../src
 PROJECT_SOURCES = \
 	project.v \
-	adc_sigma_delta_top.v \
-	adc_input_synchronizer.v \
-	adc_control.v \
-	adc_decimator.v \
-	adc_gain_offset_cal.v \
-	adc_activity_monitor.v \
-	adc_output_registers.v
+	nn_input_sync.v \
+	nn_lstm_cell.v \
+	nn_lstm_layer.v \
+	nn_dense_layer.v \
+	nn_confidence_calc.v \
+	nn_busy_controller.v
 
 ifneq ($(GATES),yes)
 

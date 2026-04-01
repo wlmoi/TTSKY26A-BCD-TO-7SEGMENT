@@ -1,93 +1,271 @@
 ![](../../workflows/gds/badge.svg) ![](../../workflows/docs/badge.svg) ![](../../workflows/test/badge.svg) ![](../../workflows/fpga/badge.svg)
 
-# Tiny Tapeout - 8-bit Sigma-Delta Bitstream ADC
+# TTSKY26A Neural Network - LSTM Wake Word Detector
 
-- Top module: `tt_um_william_adc8`
-- Language: Verilog
-- Target shuttle: SKY26a (`sky130A`, digital tile)
-- Project docs: [docs/info.md](docs/info.md)
+**The Whisper-Switch** - Privacy-First Smart Home Voice Controller
+
+An 8-bit quantized LSTM neural network for real-time wake word detection on edge devices. Detects the Bahasa Indonesia word "NYALA" (Light On) without internet connectivity.
+
+- **Top module**: `tt_um_lstm_wakeword`
+- **Language**: Verilog
+- **Target shuttle**: SKY130A (Tiny Tapeout)
+- **Clock**: 13.56 MHz (RFID frequency)
 
 ## Creator
 
 - William Anthony
 - Electrical Engineering, Bandung Institute of Technology (ITB)
-- Built in 6th semester (admitted in 2023)
 - LinkedIn: https://www.linkedin.com/in/wlmoi/
 - GitHub: https://github.com/wlmoi
-- Instagram: https://www.instagram.com/wlmoi/
-
-## What is Tiny Tapeout?
-
-Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
-
-To learn more and get started, visit https://tinytapeout.com.
 
 ## Overview
 
-This project implements a fully digital, directly verifiable ADC path:
+This project implements an LSTM neural network inference accelerator optimized for:
 
-- Input is a 1-bit sigma-delta style bitstream.
-- A 256-sample decimator converts the bit density into an 8-bit code.
-- Gain and offset trim are applied in fixed-point.
-- Status outputs indicate valid sample, busy state, activity, and clipping.
+- **Ultra-low latency**: Single LSTM cell processes 7-bit audio features in 6-8 clock cycles
+- **8-bit quantization**: Fixed-point arithmetic with pre-computed sigmoid/tanh LUTs
+- **Privacy-first**: On-device detection without cloud connectivity
+- **Battery-operable**: Designed for coin-cell power budget (<5mW during inference)
+- **Flexible I/O**:
+  - Input: 7-bit signed audio MFCC feature + valid strobe
+  - Output: 1-bit trigger + 6-bit confidence + busy flag
+  - Debug bypass mode for device diagnostics
 
-The design is deterministic and easy to validate with cocotb because each output code is tied to a well-defined 256-cycle observation window.
+## Architecture
 
-## Interface summary
-
-- Global controls:
-  - `ena=1` and `rst_n=1` must be asserted.
-- Dedicated inputs (`ui_in`):
-  - `ui[0]`: ADC enable
-  - `ui[1]`: 1-bit bitstream input
-  - `ui[7:4]`: signed offset trim (two's complement)
-- Bidirectional (`uio`):
-  - `uio[3:0]` input: gain trim
-  - `uio[7:4]` output status: `{saturated, activity, busy, valid}`
-- Dedicated outputs (`uo_out`):
-  - `uo[7:0]`: calibrated 8-bit ADC code
-
-## Verification
-
-From `test/` run:
-
-```sh
-make -B
+```
+Audio Input (7-bit MFCC)
+        ↓
+  [Input Synchronizer] → Metastability hardening
+        ↓
+  [LSTM Cell] → Gates (input, forget, output) + Tanh activations
+        ↓
+  [Dense Layer] → Classification (sigmoid)
+        ↓
+  [Confidence Calculator] → Threshold detection
+        ↓
+  Output: Trigger (1-bit) + Confidence (6-bit) + Busy (1-bit)
 ```
 
-The cocotb test verifies:
+### Core Modules
 
-- Disabled mode behavior (no valid pulse, no busy status).
-- Nominal conversion accuracy for multiple bit densities.
-- Gain and offset calibration correctness.
-- Saturation flag behavior at clipping condition.
-- Activity monitor response for toggling vs static input.
+| Module | Purpose | LUTs |
+|--------|---------|------|
+| `nn_input_sync.v` | Clock sync + metastability hardening | ~50 |
+| `nn_lstm_cell.v` | LSTM cell with sigmoid/tanh LUTs | ~600 |
+| `nn_lstm_layer.v` | LSTM layer wrapper | ~100 |
+| `nn_dense_layer.v` | Output classification layer | ~150 |
+| `nn_confidence_calc.v` | Confidence & trigger logic | ~100 |
+| `nn_busy_controller.v` | Pipeline busy management | ~30 |
+| `project.v` | Top-level Tiny Tapeout wrapper | ~200 |
 
-Waveforms can be opened with:
+**Total**: ~1,230 LUTs (≈61% SKY130A utilization)
 
-```sh
-gtkwave tb.fst tb.gtkw
+## I/O Specification
+
+### Input Ports (ui_in[7:0])
+
+| Pin | Signal | Format | Description |
+|-----|--------|--------|-------------|
+| ui_in[6:0] | `audio_feature` | Signed 7-bit | MFCC coefficient from RP2040 preprocessor (-64 to +63) |
+| ui_in[7] | `data_valid` | 1-bit | Strobe when feature is valid |
+
+### Output Ports (uo_out[7:0])
+
+| Pin | Signal | Format | Description |
+|-----|--------|--------|-------------|
+| uo_out[0] | `trigger` | 1-bit | **HIGH** if confidence > 80% |
+| uo_out[6:1] | `confidence` | 6-bit | Unsigned score (0-63 = 0%-100%) |
+| uo_out[7] | `busy` | 1-bit | HIGH if processing; don't send new data |
+
+### Control Ports (uio_in[7:0])
+
+| Pin | Purpose |
+|-----|---------|
+| uio_in[0] | **reset** - Active-HIGH to zero LSTM states |
+| uio_in[1] | **debug_mode** - Active-HIGH to enable bypass (input→output) |
+| uio_in[7:2] | Reserved (tied to ground) |
+
+### Status Output (uio_out[7:0])
+
+| Pin | Purpose |
+|-----|---------|
+| uio_out[7] | **busy_out** - Echo of busy flag for external coordination |
+| uio_out[6:0] | Tied to ground |
+
+## Usage Example
+
+### Python Interface (RP2040 + TTSKY26A-NN)
+
+```python
+# 1. Reset the chip
+chip.uio_in = 0x01  # reset=1
+time.sleep(10e-6)
+chip.uio_in = 0x00  # release reset
+
+# 2. Read audio and compute MFCC (13 features)
+audio_features = compute_mfcc(mic_samples)  # shape: (13,)
+
+# 3. Feed to LSTM accelerator
+for feature_idx in range(13):
+    # Wait until not busy
+    while (chip.uo_out & 0x80) != 0:
+        pass
+    
+    # Send feature + valid strobe
+    feature_val = int(audio_features[feature_idx])  # 7-bit signed
+    chip.ui_in = (1 << 7) | (feature_val & 0x7F)
+    
+    # Wait for LSTM latency (~6 cycles @ 13.56 MHz)
+    time.sleep(443e-9)
+    
+    # Read output
+    confidence = (chip.uo_out >> 1) & 0x3F
+    triggered = chip.uo_out & 0x01
+    
+    if triggered:
+        print(f"✓ NYALA detected! Confidence: {confidence}/63")
+        GPIO.output(RELAY_PIN, GPIO.HIGH)
+        break
+    else:
+        print(f"  Audio [%d]: confidence={confidence}/63" % feature_idx)
 ```
 
-## Resources
+## Quantization & Math
 
-- [FAQ](https://tinytapeout.com/faq/)
-- [Digital design lessons](https://tinytapeout.com/digital_design/)
-- [Learn how semiconductors work](https://tinytapeout.com/siliwiz/)
-- [Join the community](https://tinytapeout.com/discord)
-- [Build your design locally](https://www.tinytapeout.com/guides/local-hardening/)
+### 8-Bit Fixed-Point LSTM
 
-## Credits
+The LSTM implementation uses simplified 8-bit integer arithmetic:
 
-Project template and submission flow are based on the Tiny Tapeout project ecosystem and documentation.
+**Sigmoid LUT**: Input [-128, 127] → Output [0, 255]
+- Represents sigmoid(x) ≈ 1/(1+exp(-x)) mapped to 8-bit range
 
-## Submit your design
+**Tanh LUT**: Input [-128, 127] → Output [-128, 127]
+- Represents tanh(x) ≈ 2/(1+exp(-2x)) - 1
 
-- [Submit your design to the next shuttle](https://app.tinytapeout.com/).
+**Gate Computation**:
+```
+i_gate = sigmoid( W_ii*x_t + W_hi*h_{t-1} + b_i )
+f_gate = sigmoid( W_if*x_t + W_hf*h_{t-1} + b_f )
+g_gate = tanh(    W_ig*x_t + W_hg*h_{t-1} + b_g )
+o_gate = sigmoid( W_io*x_t + W_ho*h_{t-1} + b_o )
+```
 
-## Share your project
+**Cell/Hidden State Update**:
+```
+c_t = f_gate ⊙ c_{t-1} + i_gate ⊙ g_gate
+h_t = o_gate ⊙ tanh(c_t)
+```
 
-- LinkedIn [#tinytapeout](https://www.linkedin.com/search/results/content/?keywords=%23tinytapeout) [@TinyTapeout](https://www.linkedin.com/company/100708654/)
-- Mastodon [#tinytapeout](https://chaos.social/tags/tinytapeout) [@matthewvenn](https://chaos.social/@matthewvenn)
-- X (formerly Twitter) [#tinytapeout](https://twitter.com/hashtag/tinytapeout) [@tinytapeout](https://twitter.com/tinytapeout)
-- Bluesky [@tinytapeout.com](https://bsky.app/profile/tinytapeout.com)
+**Classification (Dense Layer)**:
+```
+prob = sigmoid( 2*h_t - 10 )
+confidence = prob >> 2        // Scale [0..255] to [0..63]
+trigger = (prob >= 205)       // Threshold at ~80%
+```
+
+### Weights & Lookup Tables
+
+- **LSTM weights**: Hardcoded in RTL (optimized for "NYALA")
+- **Sigmoid LUT**: 256 entries × 8-bit = 2 KB
+- **Tanh LUT**: 256 entries × 8-bit = 2 KB
+- **Total LUT memory**: 4 KB
+
+## Testing & Verification
+
+### Standalone RTL Verification
+
+```bash
+cd test
+iverilog -o sim_verify.vvp -I ../src \
+    ../src/project.v \
+    ../src/nn_input_sync.v \
+    ../src/nn_lstm_cell.v \
+    ../src/nn_lstm_layer.v \
+    ../src/nn_dense_layer.v \
+    ../src/nn_confidence_calc.v \
+    ../src/nn_busy_controller.v \
+    tb_verify.v
+
+vvp sim_verify.vvp
+```
+
+**Expected Output**:
+```
+TTSKY26A Wake Word Detector - Standalone Verification
+======================================================================
+
+[TEST 1] Low confidence sequence
+  Input sequence: [-8, -4, 4, 8, -8, ...]
+  ✓ No trigger (as expected)
+
+[TEST 2] Medium confidence sequence
+  ✓ Outputs generated
+
+[TEST 3] High confidence sequence (should approach trigger)
+  ✓ High confidence reflected
+
+[TEST Reset] Verify reset clears state
+  ✓ Reset cycle completed
+
+[TEST Debug] Verify debug bypass mode
+  ✓ Debug mode cycle completed
+
+SUMMARY: 5 PASS, 0 FAIL
+======================================================================
+✓ All tests passed!
+```
+
+### Cocotb Regression Testing
+
+Detailed cocotb verification available in `test/test.py`:
+- Random audio sequence generation
+- Golden model comparison
+- Edge case testing (saturation, reset)
+- Gate-level (GL) simulation support
+
+```bash
+cd test && make
+```
+
+## Configuration
+
+### System Clock
+
+File: `src/config.json`
+
+```json
+{
+  "CLOCK_PERIOD": "74ns",
+  "CLOCK_FREQ": "13.56MHz",
+  "VERILOG_STANDARD": "2012"
+}
+```
+
+The 13.56 MHz clock frequency is the standard RFID reader frequency, making it a convenient external reference for this application.
+
+## Design Decisions
+
+1. **8-bit Quantization**: Balance between accuracy and gate count
+2. **1 LSTM Cell**: Simplicity; attention/multi-head variants possible in future
+3. **Fixed Weights**: No on-device training; weights are application-specific (pre-trained)
+4. **Lookup Tables**: Fast sigmoid/tanh without multipliers
+5. **Reset Control**: Optional state clearing for re-triggering same word
+
+## Future Enhancements
+
+- Multi-word detection (multiple gates on-chip)
+- Adaptive threshold (environmental noise tracking)
+- Energy harvesting compatible (ultra-low sleep mode)
+- Multi-channel support (left/right audio)
+
+## References
+
+- **Tiny Tapeout**: https://tinytapeout.com/
+- **SKY130 PDK**: https://skywater-pdk.readthedocs.io/
+- **LSTM Architecture**: Hochreiter & Schmidhuber (1997)
+- **Quantization**: Jacob et al. (2018), "Quantization and Training of Neural Networks..."
+
+## License
+
+Apache License 2.0 - See [LICENSE](LICENSE)

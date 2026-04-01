@@ -1,6 +1,6 @@
 `default_nettype none
 
-module tt_um_william_adc8 (
+module tt_um_lstm_wakeword (
   input  wire [7:0] ui_in,
   output wire [7:0] uo_out,
   input  wire [7:0] uio_in,
@@ -16,46 +16,106 @@ module tt_um_william_adc8 (
 `endif
 );
 
-  wire core_enable;
-  wire bitstream_in;
-  wire [3:0] gain_trim;
-  wire [3:0] offset_trim;
-  wire [7:0] adc_code;
-  wire adc_valid;
-  wire adc_busy;
-  wire adc_activity;
-  wire adc_saturated;
+  // ===== Port mapping =====
+  // ui_in[6:0]  = audio_feature (7-bit signed MFCC feature)
+  // ui_in[7]    = data_valid (strobe signal)
+  // uio_in[0]   = reset (active high to clear LSTM state)
+  // uio_in[1]   = debug_mode (bypass to check connectivity)
+  // 
+  // uo_out[0]   = trigger (keyword detected)
+  // uo_out[6:1] = confidence (6-bit confidence score)
+  // uo_out[7]   = busy (chip processing)
+  //
+  // uio_out[7]  = busy_flag (input port: don't send new data)
+  // uio_out[6:0] = reserved
 
-  assign core_enable = ena & ui_in[0];
-  assign bitstream_in = ui_in[1];
-  assign offset_trim = ui_in[7:4];
-  assign gain_trim = uio_in[3:0];
+  wire [6:0] audio_feature;
+  wire data_valid;
+  wire reset_local;
+  wire debug_mode;
 
-  adc_sigma_delta_top #(
-    .WINDOW_BITS       (8),
-    .ACTIVITY_THRESHOLD(8)
-  ) u_adc (
-    .clk               (clk),
-    .reset_n           (rst_n),
-    .enable            (core_enable),
-    .bitstream_in      (bitstream_in),
-    .gain_trim         (gain_trim),
-    .offset_trim       (offset_trim),
-    .adc_code          (adc_code),
-    .adc_valid         (adc_valid),
-    .adc_busy          (adc_busy),
-    .adc_activity      (adc_activity),
-    .adc_saturated     (adc_saturated)
+  wire [7:0] h_lstm;
+  wire busy_lstm;
+  wire [7:0] prob_out;
+  wire valid_lstm;
+  wire [5:0] confidence;
+  wire trigger;
+  wire busy_chip;
+
+  // ===== Input Parsing =====
+  assign audio_feature = ui_in[6:0];
+  assign data_valid = ui_in[7];
+  assign reset_local = uio_in[0];
+  assign debug_mode = uio_in[1];
+
+  // ===== Debug Mode: Bypass Chain =====
+  wire [7:0] debug_output;
+  assign debug_output = { 1'b0, audio_feature };  // Sign-extend to 8-bit
+
+  // ===== Input Synchronizer =====
+  wire [7:0] audio_sync;
+  wire valid_sync;
+  
+  nn_input_sync input_sync_inst (
+    .clk(clk),
+    .reset_n(~reset_local),
+    .audio_feature_in(audio_feature),
+    .data_valid_in(data_valid),
+    .audio_sync(audio_sync),
+    .valid_sync(valid_sync)
   );
 
-  assign uo_out = adc_code;
+  // ===== LSTM Layer =====
+  nn_lstm_layer lstm_layer_inst (
+    .clk(clk),
+    .reset_n(~reset_local),
+    .x_in(debug_mode ? debug_output : audio_sync),
+    .valid_in(debug_mode ? data_valid : valid_sync),
+    .h_out(h_lstm),
+    .busy_out(busy_lstm)
+  );
 
-  assign uio_out[7:4] = {adc_saturated, adc_activity, adc_busy, adc_valid};
-  assign uio_out[3:0] = 4'b0;
+  // ===== Dense Output Layer =====
+  nn_dense_layer dense_inst (
+    .clk(clk),
+    .reset_n(~reset_local),
+    .h_in(h_lstm),
+    .valid_in(1'b1),  // Always process LSTM output
+    .prob_out(prob_out),
+    .valid_out(valid_lstm)
+  );
 
-  assign uio_oe = 8'b11110000;
+  // ===== Confidence Calculator & Trigger Detection =====
+  nn_confidence_calc confidence_inst (
+    .clk(clk),
+    .reset_n(~reset_local),
+    .prob_in(prob_out),
+    .valid_in(valid_lstm),
+    .confidence(confidence),
+    .trigger(trigger),
+    .valid_out()
+  );
 
-  wire _unused = &{ui_in[3:2], uio_in[7:4], 1'b0};
+  // ===== Busy Controller =====
+  nn_busy_controller busy_ctrl_inst (
+    .clk(clk),
+    .reset_n(~reset_local),
+    .valid_in(data_valid),
+    .lstm_busy(busy_lstm),
+    .busy_out(busy_chip)
+  );
+
+  // ===== Output Mapping =====
+  // uo_out: {busy[7], confidence[6:1], trigger[0]}
+  assign uo_out = debug_mode ? 
+                  { 1'b0, debug_output[6:1], debug_output[0] } :
+                  { busy_chip, confidence, trigger };
+
+  // uio_out[7] = busy flag output
+  assign uio_out = { busy_chip, 7'b0 };
+  assign uio_oe = 8'b10000000;
+
+  wire _unused = &{ena, ui_in[6:0], uio_in[7:2], 1'b0};
 `ifdef USE_POWER_PINS
   wire _unused_power = &{VPWR, VGND, 1'b0};
 `endif
