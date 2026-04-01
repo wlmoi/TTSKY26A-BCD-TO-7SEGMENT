@@ -39,7 +39,7 @@ module tb ();
     uio_in = 8'h00;
   end
 
-  tt_um_william_adc8 user_project (
+  tt_um_lstm_wakeword user_project (
   `ifdef GL_TEST
     .VPWR(VPWR),
     .VGND(VGND),
