@@ -115,12 +115,39 @@ Expected summary:
 - pass=13
 - fail=0
 
+## Hardware Verification Target
+
+To match the bought module for real-hardware verification:
+
+- Use the 1 Digit variant of the 0.36" 7-segment display module.
+- This project supports both common display types:
+  - Common Cathode: set `uio[0] = 0` (active-high segment drive)
+  - Common Anode: set `uio[0] = 1` (active-low segment drive)
+- The listing you shared can be used as verification target as long as you select:
+  - Digit count: 1 Digit
+  - Type: Common Cathode or Common Anode (both are supported by this RTL)
+
 ## References
 
 - LD3631ABU Datasheet (0.36" LED Digital Tube): https://imrnrwxhplpp5p.leadongcdn.com/LD3631ABU-aidlkBqmKonSRniilqorniq.pdf
 - Shopee product page used for hardware verification target: https://shopee.co.id/product/2178321/13198892939
 - GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
 - Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html
+
+## Creator
+
+- William Anthony
+- Electrical Engineering, Bandung Institute of Technology (ITB)
+- Built in 6th semester (admitted in 2023)
+- LinkedIn: https://www.linkedin.com/in/wlmoi/
+- GitHub: https://github.com/wlmoi
+- Instagram: https://www.instagram.com/wlmoi/
+
+## What is Tiny Tapeout?
+
+Tiny Tapeout is an educational project that aims to make it easier and cheaper than ever to get your digital and analog designs manufactured on a real chip.
+
+To learn more and get started, visit https://tinytapeout.com.
 
 ## License
 
