@@ -4,6 +4,14 @@
 
 This design translates one 4-bit BCD input into a 7-segment display pattern.
 
+### Visual explanation
+
+![Block diagram](blockdiagram.png)
+
+![Common anode and common cathode modes](commonanodecathode_format.webp)
+
+![7-segment glyph reference](bcd7segment.webp)
+
 Functional pipeline:
 
 1. BCD decode:
@@ -64,5 +72,5 @@ vvp sim_bcd_verify.vvp
 
 ### References
 
-1. Tiny Tapeout: https://tinytapeout.com/
-2. GeeksforGeeks, Deep Learning - Introduction to Long Short Term Memory: https://www.geeksforgeeks.org/deep-learning/deep-learning-introduction-to-long-short-term-memory/
+1. GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
+2. Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html

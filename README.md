@@ -21,6 +21,20 @@ Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs 
   - common-anode (active-low)
 - Status reporting on uio outputs
 
+## Visual Overview
+
+### Block Diagram
+
+![BCD to 7-segment block diagram](docs/blockdiagram.png)
+
+### Display Types
+
+![Common anode vs common cathode](docs/commonanodecathode_format.webp)
+
+### Segment Layout Reference
+
+![7-segment layout](docs/bcd7segment.webp)
+
 ## Interface
 
 ### Dedicated Inputs (ui[7:0])
@@ -44,6 +58,24 @@ Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs 
 - uio[5]: invalid digit active
 - uio[6]: display_on
 - uio[7]: active_low_mode echo
+
+## BCD Results
+
+Segment order uses {a,b,c,d,e,f,g} with active-high convention before optional active-low inversion.
+
+| BCD | Digit | Segment bits (abcdefg) | Hex |
+|-----|-------|-------------------------|-----|
+| 0000 | 0 | 1111110 | 0x7E |
+| 0001 | 1 | 0110000 | 0x30 |
+| 0010 | 2 | 1101101 | 0x6D |
+| 0011 | 3 | 1111001 | 0x79 |
+| 0100 | 4 | 0110011 | 0x33 |
+| 0101 | 5 | 1011011 | 0x5B |
+| 0110 | 6 | 1011111 | 0x5F |
+| 0111 | 7 | 1110000 | 0x70 |
+| 1000 | 8 | 1111111 | 0x7F |
+| 1001 | 9 | 1111011 | 0x7B |
+| 1010-1111 | Invalid | 0000001 (dash) | 0x01 |
 
 ## Source Files
 
@@ -81,8 +113,8 @@ Expected summary:
 
 ## References
 
-- Tiny Tapeout: https://tinytapeout.com/
-- GeeksforGeeks, Deep Learning - Introduction to Long Short Term Memory: https://www.geeksforgeeks.org/deep-learning/deep-learning-introduction-to-long-short-term-memory/
+- GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
+- Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html
 
 ## License
 
