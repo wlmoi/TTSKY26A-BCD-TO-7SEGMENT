@@ -29,5 +29,5 @@ vvp sim_bcd_verify.vvp
 ```
 
 Expected summary:
-- pass=8
+- pass=13
 - fail=0

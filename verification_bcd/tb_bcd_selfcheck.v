@@ -55,7 +55,7 @@ module tb_bcd_selfcheck;
     endtask
 
     initial begin
-        $display("Start BCD standalone self-check");
+        $display("Start HEX standalone self-check");
 
         ena = 1'b0;
         rst_n = 1'b0;
@@ -70,7 +70,12 @@ module tb_bcd_selfcheck;
         check_case(8'h11, 8'h00, 8'h30, 4'h5, "digit 1");
         check_case(8'h12, 8'h00, 8'h6D, 4'h5, "digit 2");
         check_case(8'h19, 8'h00, 8'h7B, 4'h5, "digit 9");
-        check_case(8'h1A, 8'h00, 8'h01, 4'h6, "invalid A");
+        check_case(8'h1A, 8'h00, 8'h77, 4'h5, "digit A");
+        check_case(8'h1B, 8'h00, 8'h1F, 4'h5, "digit b");
+        check_case(8'h1C, 8'h00, 8'h4E, 4'h5, "digit C");
+        check_case(8'h1D, 8'h00, 8'h3D, 4'h5, "digit d");
+        check_case(8'h1E, 8'h00, 8'h4F, 4'h5, "digit e");
+        check_case(8'h1F, 8'h00, 8'h47, 4'h5, "digit F");
         check_case(8'h38, 8'h00, 8'h00, 4'h0, "blank mode");
         check_case(8'h50, 8'h00, 8'hFF, 4'h5, "lamp test");
         check_case(8'h12, 8'h01, 8'h92, 4'hD, "active-low mode");
@@ -80,7 +85,7 @@ module tb_bcd_selfcheck;
 
         $display("SUMMARY: pass=%0d fail=%0d", pass_count, fail_count);
         if (fail_count != 0) begin
-            $fatal(1, "BCD self-check failed");
+            $fatal(1, "HEX self-check failed");
         end
         $finish;
     end

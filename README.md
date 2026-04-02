@@ -2,7 +2,7 @@
 
 # TTSKY26A-BCD-TO-7SEGMENT
 
-Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs with practical control features for real hardware integration.
+Tiny Tapeout project that converts 4-bit input to 7-segment display outputs for a practical HEX glyph set compatible with common 0.36" LED digital tube modules.
 
 - Top module: tt_um_wlmoi_bcd_to_7segment
 - Language: Verilog
@@ -11,8 +11,7 @@ Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs 
 
 ## Features
 
-- BCD decode for digits 0..9
-- Invalid BCD (10..15) shown as dash
+- HEX decode for 0..9, A, b, C, d, e, F
 - Display enable and blank control
 - Lamp test mode (all segments on)
 - Decimal point path
@@ -25,20 +24,20 @@ Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs 
 
 ### Block Diagram
 
-![BCD to 7-segment block diagram](docs/blockdiagram.png)
+![BCD to 7-segment block diagram](docs/extra-img/blockdiagram.png)
 
 ### Display Types
 
-![Common anode vs common cathode](docs/commonanodecathode_format.webp)
+![Common anode vs common cathode](docs/extra-img/commonanodecathode_format.webp)
 
 ### Segment Layout Reference
 
-![7-segment layout](docs/bcd7segment.webp)
+![7-segment layout](docs/extra-img/bcd7segment.webp)
 
 ## Interface
 
 ### Dedicated Inputs (ui[7:0])
-- ui[3:0]: BCD nibble
+- ui[3:0]: HEX nibble
 - ui[4]: Display enable
 - ui[5]: Blank
 - ui[6]: Lamp test
@@ -59,11 +58,11 @@ Tiny Tapeout project that converts 4-bit BCD input to 7-segment display outputs 
 - uio[6]: display_on
 - uio[7]: active_low_mode echo
 
-## BCD Results
+## HEX Results
 
 Segment order uses {a,b,c,d,e,f,g} with active-high convention before optional active-low inversion.
 
-| BCD | Digit | Segment bits (abcdefg) | Hex |
+| Input | Digit | Segment bits (abcdefg) | Hex |
 |-----|-------|-------------------------|-----|
 | 0000 | 0 | 1111110 | 0x7E |
 | 0001 | 1 | 0110000 | 0x30 |
@@ -75,7 +74,12 @@ Segment order uses {a,b,c,d,e,f,g} with active-high convention before optional a
 | 0111 | 7 | 1110000 | 0x70 |
 | 1000 | 8 | 1111111 | 0x7F |
 | 1001 | 9 | 1111011 | 0x7B |
-| 1010-1111 | Invalid | 0000001 (dash) | 0x01 |
+| 1010 | A | 1110111 | 0x77 |
+| 1011 | b | 0011111 | 0x1F |
+| 1100 | C | 1001110 | 0x4E |
+| 1101 | d | 0111101 | 0x3D |
+| 1110 | e | 1001111 | 0x4F |
+| 1111 | F | 1000111 | 0x47 |
 
 ## Source Files
 
@@ -108,11 +112,13 @@ vvp sim_bcd_verify.vvp
 ```
 
 Expected summary:
-- pass=8
+- pass=13
 - fail=0
 
 ## References
 
+- LD3631ABU Datasheet (0.36" LED Digital Tube): https://imrnrwxhplpp5p.leadongcdn.com/LD3631ABU-aidlkBqmKonSRniilqorniq.pdf
+- Shopee product page used for hardware verification target: https://shopee.co.id/product/2178321/13198892939
 - GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
 - Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html
 

@@ -15,9 +15,13 @@ SEG_MAP = {
     0x7: 0b1110000,
     0x8: 0b1111111,
     0x9: 0b1111011,
+    0xA: 0b1110111,
+    0xB: 0b0011111,
+    0xC: 0b1001110,
+    0xD: 0b0111101,
+    0xE: 0b1001111,
+    0xF: 0b1000111,
 }
-
-DASH_SEG = 0b0000001
 
 
 def pack_ui(bcd, display_enable=1, blank=0, lamp_test=0, dp=0):
@@ -58,8 +62,8 @@ def split_status(uio_out):
 
 
 def expected_outputs(bcd, display_enable=1, blank=0, lamp_test=0, dp=0, active_low_mode=0):
-    valid_digit = 1 if bcd <= 9 else 0
-    seg_digit = SEG_MAP.get(bcd, DASH_SEG)
+    valid_digit = 1 if bcd in SEG_MAP else 0
+    seg_digit = SEG_MAP.get(bcd, 0)
 
     if not display_enable or blank:
         seg_active_high = 0b0000000
@@ -93,7 +97,7 @@ def expected_outputs(bcd, display_enable=1, blank=0, lamp_test=0, dp=0, active_l
 
 @cocotb.test()
 async def test_project(dut):
-    dut._log.info("Start BCD-to-7segment verification")
+    dut._log.info("Start HEX-to-7segment verification")
 
     await drive_signals(dut, ena=0, rst_n=0, ui_in=pack_ui(0, 0), uio_in=0)
     for _ in range(4):
@@ -103,34 +107,20 @@ async def test_project(dut):
     for _ in range(2):
         await RisingEdge(dut.clk)
 
-    # Check valid BCD digits in common-cathode mode.
-    for digit in range(10):
+    # Check full HEX glyph map in common-cathode mode.
+    for digit in range(16):
         ui_val = pack_ui(digit, display_enable=1, blank=0, lamp_test=0, dp=0)
         await drive_signals(dut, ui_in=ui_val, uio_in=0x00)
         got_uo, got_uio = await sample_once(dut)
 
         exp_uo, exp_status = expected_outputs(digit, 1, 0, 0, 0, 0)
         assert got_uo == exp_uo, (
-            f"Digit {digit} mismatch. expected uo=0x{exp_uo:02x}, got uo=0x{got_uo:02x}"
+            f"HEX {digit:X} mismatch. expected uo=0x{exp_uo:02x}, got uo=0x{got_uo:02x}"
         )
 
         got_status = split_status(got_uio)
         assert got_status == exp_status, (
-            f"Digit {digit} status mismatch. expected={exp_status}, got={got_status}"
-        )
-
-    # Invalid BCD should show dash and invalid flag.
-    for digit in [10, 11, 12, 13, 14, 15]:
-        ui_val = pack_ui(digit, display_enable=1, blank=0, lamp_test=0, dp=0)
-        await drive_signals(dut, ui_in=ui_val, uio_in=0x00)
-        got_uo, got_uio = await sample_once(dut)
-
-        exp_uo, exp_status = expected_outputs(digit, 1, 0, 0, 0, 0)
-        assert got_uo == exp_uo, (
-            f"Invalid digit {digit} mismatch. expected uo=0x{exp_uo:02x}, got=0x{got_uo:02x}"
-        )
-        assert split_status(got_uio) == exp_status, (
-            f"Invalid digit {digit} status mismatch"
+            f"HEX {digit:X} status mismatch. expected={exp_status}, got={got_status}"
         )
 
     # Blank mode should force all segments off.
@@ -164,4 +154,4 @@ async def test_project(dut):
     await drive_signals(dut, ena=1)
     await RisingEdge(dut.clk)
 
-    dut._log.info("BCD-to-7segment checks passed")
+    dut._log.info("HEX-to-7segment checks passed")

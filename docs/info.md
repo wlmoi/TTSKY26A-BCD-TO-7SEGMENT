@@ -2,21 +2,18 @@
 
 ### How it works
 
-This design translates one 4-bit BCD input into a 7-segment display pattern.
+This design translates one 4-bit input into a 7-segment HEX glyph pattern.
 
 ### Visual explanation
 
-![Block diagram](blockdiagram.png)
+![Block diagram](extra-img/blockdiagram.png)
 
-![Common anode and common cathode modes](commonanodecathode_format.webp)
-
-![7-segment glyph reference](bcd7segment.webp)
+The additional display reference photos are available in docs/extra-img.
 
 Functional pipeline:
 
-1. BCD decode:
-- Inputs 0..9 map to standard 7-segment glyphs.
-- Inputs 10..15 are marked invalid and mapped to dash.
+1. HEX decode:
+- Inputs 0..15 map to 0,1,2,3,4,5,6,7,8,9,A,b,C,d,e,F.
 
 2. Display control:
 - display_enable gates the output path.
@@ -35,7 +32,7 @@ Functional pipeline:
 
 ### Pin usage summary
 
-- ui[3:0]: BCD
+- ui[3:0]: HEX nibble
 - ui[4]: display_enable
 - ui[5]: blank
 - ui[6]: lamp_test
@@ -72,5 +69,7 @@ vvp sim_bcd_verify.vvp
 
 ### References
 
-1. GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
-2. Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html
+1. LD3631ABU Datasheet (0.36" LED Digital Tube): https://imrnrwxhplpp5p.leadongcdn.com/LD3631ABU-aidlkBqmKonSRniilqorniq.pdf
+2. Shopee target module page: https://shopee.co.id/product/2178321/13198892939
+3. GeeksforGeeks, BCD to 7 Segment Decoder: https://www.geeksforgeeks.org/digital-logic/bcd-to-7-segment-decoder/
+4. Electronics Tutorials, BCD to 7 Segment Decoder: https://www.electronics-tutorials.ws/combination/comb_6.html
