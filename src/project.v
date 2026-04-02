@@ -1,6 +1,6 @@
 `default_nettype none
 
-module tt_um_lstm_wakeword (
+module tt_um_wlmoi_bcd_to_7segment (
   input  wire [7:0] ui_in,
   output wire [7:0] uo_out,
   input  wire [7:0] uio_in,
@@ -16,108 +16,70 @@ module tt_um_lstm_wakeword (
 `endif
 );
 
-  // ===== Port mapping =====
-  // ui_in[6:0]  = audio_feature (7-bit signed MFCC feature)
-  // ui_in[7]    = data_valid (strobe signal)
-  // uio_in[0]   = reset (active high to clear LSTM state)
-  // uio_in[1]   = debug_mode (bypass to check connectivity)
-  // 
-  // uo_out[0]   = trigger (keyword detected)
-  // uo_out[6:1] = confidence (6-bit confidence score)
-  // uo_out[7]   = busy (chip processing)
-  //
-  // uio_out[7]  = busy_flag (input port: don't send new data)
-  // uio_out[6:0] = reserved
+  // Inputs
+  wire [3:0] bcd_in = ui_in[3:0];
+  wire display_enable_in = ui_in[4];
+  wire blank_in = ui_in[5];
+  wire lamp_test_in = ui_in[6];
+  wire dp_in = ui_in[7];
 
-  wire [6:0] audio_feature;
-  wire data_valid;
-  wire reset_local;
-  wire core_reset_n;
-  wire debug_mode;
+  // Mode
+  wire active_low_mode = uio_in[0];
 
-  wire [7:0] h_lstm;
-  wire busy_lstm;
-  wire [7:0] prob_out;
-  wire valid_lstm;
-  wire [5:0] confidence;
-  wire trigger;
-  wire busy_chip;
+  // Effective enable respects top-level enable and reset.
+  wire display_enable = ena & rst_n & display_enable_in;
 
-  // ===== Input Parsing =====
-  assign audio_feature = ui_in[6:0];
-  assign data_valid = ui_in[7];
-  assign reset_local = uio_in[0];
-  assign core_reset_n = rst_n & ~reset_local;
-  assign debug_mode = uio_in[1];
+  wire [6:0] seg_digit;
+  wire       valid_digit;
+  wire [6:0] seg_active_high;
+  wire       display_on;
+  wire       invalid_active;
+  wire [6:0] seg_pins;
+  wire       dp_active_high;
+  wire       dp_pin;
 
-  // ===== Debug Mode: Bypass Chain =====
-  wire [7:0] debug_output;
-  assign debug_output = { 1'b0, audio_feature };  // Sign-extend to 8-bit
-
-  // ===== Input Synchronizer =====
-  wire [7:0] audio_sync;
-  wire valid_sync;
-  
-  nn_input_sync input_sync_inst (
-    .clk(clk),
-    .reset_n(core_reset_n),
-    .audio_feature_in(audio_feature),
-    .data_valid_in(data_valid),
-    .audio_sync(audio_sync),
-    .valid_sync(valid_sync)
+  bcd_to_7seg_decoder u_decoder (
+    .bcd       (bcd_in),
+    .segments  (seg_digit),
+    .valid_digit(valid_digit)
   );
 
-  // ===== LSTM Layer =====
-  nn_lstm_layer lstm_layer_inst (
-    .clk(clk),
-    .reset_n(core_reset_n),
-    .x_in(debug_mode ? debug_output : audio_sync),
-    .valid_in(debug_mode ? data_valid : valid_sync),
-    .h_out(h_lstm),
-    .busy_out(busy_lstm)
+  seg_display_control u_control (
+    .seg_digit     (seg_digit),
+    .valid_digit   (valid_digit),
+    .display_enable(display_enable),
+    .blank         (blank_in),
+    .lamp_test     (lamp_test_in),
+    .seg_out       (seg_active_high),
+    .display_on    (display_on),
+    .invalid_active(invalid_active)
   );
 
-  // ===== Dense Output Layer =====
-  nn_dense_layer dense_inst (
-    .clk(clk),
-    .reset_n(core_reset_n),
-    .h_in(h_lstm),
-    .valid_in(1'b1),  // Always process LSTM output
-    .prob_out(prob_out),
-    .valid_out(valid_lstm)
+  assign dp_active_high = display_enable & ~blank_in & (lamp_test_in | dp_in);
+
+  seg_output_mode u_mode (
+    .seg_active_high(seg_active_high),
+    .dp_active_high (dp_active_high),
+    .active_low_mode(active_low_mode),
+    .seg_pins       (seg_pins),
+    .dp_pin         (dp_pin)
   );
 
-  // ===== Confidence Calculator & Trigger Detection =====
-  nn_confidence_calc confidence_inst (
-    .clk(clk),
-    .reset_n(core_reset_n),
-    .prob_in(prob_out),
-    .valid_in(valid_lstm),
-    .confidence(confidence),
-    .trigger(trigger),
-    .valid_out()
-  );
+  // uo_out[6:0] => segments a..g, uo_out[7] => decimal point.
+  assign uo_out = {dp_pin, seg_pins};
 
-  // ===== Busy Controller =====
-  nn_busy_controller busy_ctrl_inst (
-    .clk(clk),
-    .reset_n(core_reset_n),
-    .valid_in(data_valid),
-    .lstm_busy(busy_lstm),
-    .busy_out(busy_chip)
-  );
+  // uio_out[7:4] => {active_low_mode, display_on, invalid_active, valid_digit}
+  assign uio_out[7:4] = {
+    active_low_mode,
+    display_on,
+    invalid_active,
+    valid_digit & display_on
+  };
+  assign uio_out[3:0] = 4'b0000;
 
-  // ===== Output Mapping =====
-  // uo_out: {busy[7], confidence[6:1], trigger[0]}
-  assign uo_out = debug_mode ? 
-                  { 1'b0, debug_output[6:1], debug_output[0] } :
-                  { busy_chip, confidence, trigger };
+  assign uio_oe = 8'b11110000;
 
-  // uio_out[7] = busy flag output
-  assign uio_out = { busy_chip, 7'b0 };
-  assign uio_oe = 8'b10000000;
-
-  wire _unused = &{ena, ui_in[6:0], uio_in[7:2], 1'b0};
+  wire _unused = &{clk, uio_in[7:1], 1'b0};
 `ifdef USE_POWER_PINS
   wire _unused_power = &{VPWR, VGND, 1'b0};
 `endif

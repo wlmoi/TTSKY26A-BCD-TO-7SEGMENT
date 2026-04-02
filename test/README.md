@@ -1,31 +1,33 @@
-# ADC Verification Notes
+# TTSKY26A-BCD-TO-7SEGMENT Test Guide
 
-This testbench verifies the 8-bit sigma-delta decimator ADC implementation.
+## Cocotb Regression (RTL + GL)
 
-## What is verified
+Run from this folder:
 
-- Disabled behavior: no valid pulse and no busy status.
-- Nominal code generation for known bit densities.
-- Gain and offset calibration logic.
-- Saturation detection for clipped output.
-- Activity flag behavior for dynamic and static bitstreams.
-
-## Run RTL test
-
-```sh
-make -B
+```powershell
+make
 ```
 
-## Run gate-level test
+For gate-level simulation in Tiny Tapeout flow:
 
-Copy the generated netlist into `gate_level_netlist.v` and run:
-
-```sh
-make -B GATES=yes
+```powershell
+$env:GATES="yes"
+make
 ```
 
-## Waveform viewing
+## Standalone Verilog Verification
 
-```sh
-gtkwave tb.fst tb.gtkw
+```powershell
+iverilog -o sim_bcd_verify.vvp -I ../src \
+  ../src/project.v \
+  ../src/bcd_to_7seg_decoder.v \
+  ../src/seg_display_control.v \
+  ../src/seg_output_mode.v \
+  tb_verify.v
+
+vvp sim_bcd_verify.vvp
 ```
+
+Expected summary:
+- pass=8
+- fail=0
